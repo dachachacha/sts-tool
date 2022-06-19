@@ -4,24 +4,20 @@
 package main
 
 import (
+        //"crypto/ecdsa"
+        "encoding/json"
         "flag"
         "fmt"
-        "io/ioutil"
         "log"
         "os"
-        //"strings"
+        "strings"
+        "time"
         
         "github.com/golang-jwt/jwt/v4"
-        "gopkg.in/yaml.v3"
 )
 
-type Issuer struct {
-        Urn string `yaml:"urn"`
-        Key string `yaml:"key"`
-}
-
 // Implement the 'issue' command
-func IssueJwt(args []string) {
+func IssueJwtCmd(args []string) {
 	fs := flag.NewFlagSet("issuer", flag.ExitOnError)
 	fs.Usage = func() {
 		issueUsage(fs)
@@ -32,47 +28,72 @@ func IssueJwt(args []string) {
                 die("%s", err)
         }
 	args = fs.Args()
-	if len(args) < 1 {
+	if len(args) < 2 {
 		warn("Insufficient arguments to 'issue'\n")
 		fs.Usage()
 	}
-	issuerName := args[0]
-        fmt.Printf("issuer name: %s\n",issuerName)
+	rttName := args[0]
+        customClaims := args[1]
 
-        issuer := Issuer{}
-
-        ymlFile, err := ioutil.ReadFile("../issuers/issuer_001.yml")
-        if err != nil {
-                log.Fatalf("ca.yml err:   #%v ", err)
-        }
-        err = yaml.Unmarshal(ymlFile, &issuer)
-        urn := issuer.Urn
-        key := issuer.Key
-        fmt.Printf("issuer urn: %s\n",urn)
-        fmt.Printf("issuer key: %s\n",key)
+        log.Printf("rttName: %s\n",rttName)
+        log.Printf("custom claims: %s\n", customClaims)
         
-        ecdsaKey, err := jwt.ParseECPrivateKeyFromPEM([]byte(key)) 
+        /* Build claims */
+        var mCustomClaims map[string]interface{}
+        err = json.Unmarshal([]byte(customClaims), &mCustomClaims)
         if err != nil {
-                fmt.Printf("Unable to parse ECDSA private key: %v\n", err)
-        }
-        method := jwt.GetSigningMethod("ES256")
-        token := jwt.NewWithClaims(method,jwt.StandardClaims{
-                Audience: "bar",
-                Issuer: issuer.Urn,
-        })
-        signed, err := token.SignedString(ecdsaKey)
-        if err != nil {
-                panic(err)
-        }
+                die("Input is not valid JSON. err:  %v\n", err)
+        }        
+        signed := IssueJwt(rttName, mCustomClaims)
         fmt.Println(signed)
 }
 
+func IssueJwt (rttName string, customClaims map[string]interface{}) string {
+
+        requestedTokenType := RequestedTokenType{}
+
+        readRequestedTokenType(strings.Replace("../requested_token_types/{}.yml","{}",rttName,1), &requestedTokenType)
+        rttUrn := requestedTokenType.Urn
+        rttIssuer := requestedTokenType.Issuer 
+        rttAudience := requestedTokenType.Audience
+
+        log.Printf("rtt urn: %s\n",rttUrn)
+        log.Printf("rtt issuer: %s\n",rttIssuer)
+        log.Printf("rtt audience: %s\n",rttAudience)
+
+        /* Get Issuer */
+        issuer := Issuer{}
+        readIssuer(strings.Replace("../issuers/{}.yml","{}",rttIssuer,1), &issuer)
+        issuerUrn := issuer.Urn
+        issuerKey := issuer.Key
+        issuerAlg := issuer.Alg
+
+        claims := jwt.MapClaims{}
+        claims["iss"] = issuerUrn
+        claims["aud"] = rttAudience
+        claims["exp"] = time.Now().Add(time.Hour).Unix()
+        for k, v := range customClaims { 
+                claims[k] = v
+        }
+
+        log.Printf("issuer urn: %s\n",issuerUrn)
+        //log.Printf("issuer key: %s\n",issuerKey)
+        
+        key := parseECPrivateKeyFromPEM(issuerKey,issuerAlg)
+        method := jwt.GetSigningMethod(issuerAlg)
+        log.Printf("%v\n",claims)
+        token := jwt.NewWithClaims(method,claims)
+        signed, err := token.SignedString(key)
+        if err != nil {
+                die("Error signing JWT: %v",err)
+        }
+        return signed
+}
+
 func issueUsage(fs *flag.FlagSet) {
-	fmt.Printf(`%s issue: Issue a new issuer JWT
+	fmt.Printf(`%s issue: Issue a new JWT
 
-Usage: %s issuer [options] issuer-urn
-
-Where 'issuer-urn' is the URN of the issuer.
+Usage: %s issue [options] requested-token-type-urn custom-claims
 
 Options:
 `, os.Args[0], os.Args[0])

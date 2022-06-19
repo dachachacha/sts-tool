@@ -39,7 +39,8 @@ Options:
         }
         
         var cmds = map[string]func([]string){
-                "issue":            IssueJwt,
+                "issue":            IssueJwtCmd,
+                "validate":         ValidateJwtCmd,
                 /*"validate":         ValidateJwt,
                 "authenticate":     AuthenticateJwt,
                 "enrich":           EnrichJwt,*/
