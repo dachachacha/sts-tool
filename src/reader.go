@@ -13,6 +13,20 @@ func readYml(ymlFileName string) ([]byte, error) {
         return ymlFile, err
 }
 
+/*func readIssuer(issuerName string) (Issuer) {
+    fileName := "../issuer/
+}*/
+func readObject[T any](ymlFileName string, object T) error {
+        ymlFile, err := readYml(ymlFileName)
+        if err != nil {
+                log.Fatalf("file read: %s, err:   #%v ", ymlFileName, err)
+        }
+        err = yaml.Unmarshal(ymlFile, object)
+        if err != nil {
+                log.Fatalf("load issuer err:   #%v ", err)
+        }
+        return err
+}
 func readIssuer(ymlFileName string, issuer *Issuer) error {
         ymlFile, err := readYml(ymlFileName)
         if err != nil {

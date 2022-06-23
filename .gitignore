@@ -13,3 +13,4 @@
 *.out
 .*sw?
 bin/*
+log
