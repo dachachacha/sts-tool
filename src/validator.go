@@ -18,6 +18,8 @@ import (
 
 // Implement the 'validate' command
 func ValidateJwtCmd(args []string) {
+    log.SetPrefix("[validator] - ")
+
 	fs := flag.NewFlagSet("validator", flag.ExitOnError)
 	fs.Usage = func() {
 		validateUsage(fs)
@@ -38,11 +40,11 @@ func ValidateJwtCmd(args []string) {
         log.Printf("inputJwt: %s\n",inputJwt)
         log.Printf("SubjectTokenTypeUrn: %s\n", subjectTokenTypeUrn)
         
-        validation := ValidateJwt(inputJwt, subjectTokenTypeUrn)
+        validation := ValidateJwtFromSubjectTokenType(inputJwt, subjectTokenTypeUrn)
         fmt.Println(validation)
 }
 
-func ValidateJwt (inputJwt string, subjectTokenTypeUrn string) bool {
+func ValidateJwtFromSubjectTokenType (inputJwt string, subjectTokenTypeUrn string) bool {
 
         subjectTokenType := SubjectTokenType{}
 
@@ -89,6 +91,28 @@ func ValidateJwt (inputJwt string, subjectTokenTypeUrn string) bool {
         }
         log.Printf("issuer verified")
         return true
+}
+
+func ValidateJwtWithCert(inputJwt string, pem string, alg string) (jwt.MapClaims,error) {
+    key := parseECPublicKeyFromCertPEM(pem,alg)
+    token, err := jwt.Parse(inputJwt, func(token *jwt.Token) (interface{}, error) {
+                    return key, nil
+                })
+    if err != nil {
+        log.Printf("Error parsing Authenticating JWT: %v",err)
+        return nil, err
+    }
+    log.Printf("Successfully validated token")
+    return token.Claims.(jwt.MapClaims), nil
+}
+
+func ParseJwtNoVerify(tokenString string) (jwt.MapClaims, []string, error) {
+    claims := jwt.MapClaims{}
+    token, parts, err := new(jwt.Parser).ParseUnverified(tokenString,claims)
+    if err != nil {
+        return nil, nil, err
+    }
+    return token.Claims.(jwt.MapClaims), parts, err
 }
 
 func validateUsage(fs *flag.FlagSet) {

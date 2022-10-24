@@ -18,6 +18,7 @@ func loadData(folderPath string, tableName string, factory ConfigObjFactory) {
         obj := factory()
         log.Printf("%v",reflect.TypeOf(obj))
         readObject(file,obj)
+        log.Printf("%v",obj)
         if err := txn.Insert(tableName,obj); err != nil {
             panic(err)
         }
@@ -33,7 +34,48 @@ func loadData(folderPath string, tableName string, factory ConfigObjFactory) {
     for obj := it.Next(); obj != nil; obj = it.Next() {
         i := reflect.ValueOf(obj)
         log.Printf("  %v\n", reflect.Indirect(i).FieldByName("Urn"))
+        if tableName == "client" {
+            log.Printf("  %v\n", reflect.Indirect(i).FieldByName("AllowedAudiences"))
+            log.Printf("  %v\n", reflect.Indirect(i).FieldByName("AllowedStsRequests"))
+        }
     }
+}
+
+func GetIssuerFromDB(urn string) (*Issuer, error) {
+    configObjRaw, err := GetConfigObj("issuer", urn)
+    issuer := reflect.ValueOf(configObjRaw).Interface().(*Issuer)
+    return issuer, err
+}
+func GetValidatorFromDB(urn string) (*Validator, error) {
+    configObjRaw, err := GetConfigObj("validator", urn)
+    validator := reflect.ValueOf(configObjRaw).Interface().(*Validator)
+    return validator, err
+}
+func GetRequestedTokenTypeFromDB(urn string) (*RequestedTokenType, error) {
+    configObjRaw, err := GetConfigObj("requested_token_type", urn)
+    requestedTokenType := reflect.ValueOf(configObjRaw).Interface().(*RequestedTokenType)
+    return requestedTokenType, err
+}
+func GetAuthenticatorFromDB(urn string) (*Authenticator, error) {
+    configObjRaw, err := GetConfigObj("authenticator", urn)
+    authenticator := reflect.ValueOf(configObjRaw).Interface().(*Authenticator)
+    return authenticator, err
+}
+func GetClientFromDB(urn string) (*Client, error) {
+    configObjRaw, err := GetConfigObj("client", urn)
+    client := reflect.ValueOf(configObjRaw).Interface().(*Client)
+    return client, err
+}
+
+func GetConfigObj(tableName string, urn string) (interface{},error) {
+    txn := db.Txn(false)
+    defer txn.Abort()
+    raw, err := txn.First(tableName, "id", urn)
+    if err != nil {
+        return nil, err
+    }
+    configObj := raw
+    return configObj, nil
 }
 
 func CreateDB (tables []string) *memdb.MemDB {

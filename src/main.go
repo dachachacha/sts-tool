@@ -13,6 +13,7 @@ import (
         "github.com/hashicorp/go-memdb"
 )
 
+
 var config Config;
 var db *memdb.MemDB;
 
@@ -73,11 +74,11 @@ Where 'CMD' is one of:
         db = CreateDB([]string{"authenticator","client","issuer","requested_token_type","subject_token_type","validator"})
         //issuer := Issuer{}
         //loadIssuers(config.Issuers)
-        loadData(config.Authenticators,"authenticator",CreateAuthenticator)
         loadData(config.Issuers,"issuer",CreateIssuer)
+        loadData(config.Authenticators,"authenticator",CreateAuthenticator)
         loadData(config.Clients,"client",CreateClient)
         loadData(config.RequestedTokenTypes,"requested_token_type",CreateRequestedTokenType)
-        loadData(config.SubjectTokenTypes,"subject_token_type",CreateSubjectTokenType{})
+        loadData(config.SubjectTokenTypes,"subject_token_type",CreateSubjectTokenType)
         loadData(config.Validators,"validator",CreateValidator)
 
         cmd := strings.ToLower(args[1])
